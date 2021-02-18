@@ -52,11 +52,11 @@
 			$this->token_store = Array() ;
 		}
 
-		protected function url_base() {
+		public function url_base() {
 			return self::$url_base[$this->type_prod] ;
 		}
 
-		protected function url_api() {
+		public function url_api() {
 			return self::$url_api[$this->type_prod] ;
 		}
 
