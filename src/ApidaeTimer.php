@@ -99,15 +99,18 @@
                 echo '</pre>' ;
             }
 
-            echo '<script>'."\n" ;
-                $this->displayGroup($this->timelog['sub']) ;
-            echo '</script>' ;
+            if ( is_array($this->timelog['sub']) )
+            {
+                echo '<script>'."\n" ;
+                    $this->displayGroup(@$this->timelog['sub']) ;
+                echo '</script>' ;
+            }
         }
         public function timer() {
             $this->display() ;
         }
 
-        private function displayGroup($sub,$level=0)
+        private function displayGroup(array $sub,int $level=0)
         {
             if ( ! $this->on ) return false ;
 

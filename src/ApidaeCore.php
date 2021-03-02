@@ -2,6 +2,7 @@
 
 	namespace PierreGranger ;
 	use PierreGranger\ApidaeTimer ;
+	use PierreGranger\ApidaeException ;
 
 	/**
 	*
@@ -27,6 +28,8 @@
 		 */
 		private $type_prod = 'prod' ;
 
+		protected $timeout = 15 ; // secondes
+
 		protected $debug ;
 		protected $timer ;
 
@@ -39,7 +42,11 @@
 		public function __construct(array $params=null) {
 			
 			if ( isset($params['debug']) ) $this->debug = $params['debug'] ? true:false ;
-			if ( isset($params['type_prod']) && in_array($params['type_prod'],Array('prod','preprod')) ) $this->type_prod = $params['type_prod'] ;
+			if ( isset($params['type_prod']) )
+			{
+				if ( in_array($params['type_prod'],array_keys(self::$url_api)) ) $this->type_prod = $params['type_prod'] ;
+				else throw new ApidaeException('',ApidaException::NO_PROD) ;
+			}
 
 			$this->_config = $params ;
 
@@ -64,8 +71,14 @@
 		{
 			$this->start(__METHOD__) ;
 
-			$clientId = ( $clientId != null ) ? $clientId : $this->projet_ecriture_clientId ;
-			$secret = ( $secret != null ) ? $secret : $this->projet_ecriture_secret ;
+			$clientId = ( $clientId != null ) ? $clientId : ( isset($this->projet_ecriture_clientId) ? $this->projet_ecriture_clientId : null ) ;
+			$secret = ( $secret != null ) ? $secret : (isset($this->projet_ecriture_secret) ? $this->projet_ecriture_secret : null ) ;
+
+			if ( $clientId == null || $secret == null )
+			{
+				$this->stop(__METHOD__) ;
+				throw new ApidaeException('no clientId',ApidaeException::MISSING_PARAMETER) ;
+			}
 
 			if ( isset($this->token_cache[$clientId]) )
 			{
@@ -73,128 +86,26 @@
 				return $this->token_cache[$clientId] ;
 			}
 
-			$method = 'curl' ;
+			$result = $this->request('/oauth/token',Array(
+				'USERPWD' => $clientId.":".$secret,
+				'POSTFIELDS' => "grant_type=client_credentials",
+				'format' => 'json'
+			)) ;
 
-			if ( class_exists('\Sitra\ApiClient\Client') && $this->debug )
-				$method = 'tractopelle' ;
+			$token_json = $result['object'] ;
 			
-			if ( $method == 'tractopelle' )
+			if ( $result['code'] != 200 )
 			{
-				$client = new \Sitra\ApiClient\Client([
-				    'ssoClientId'    => $clientId,
-				    'ssoSecret'      => $secret
-				]);
-
-				$token = $client->getSsoTokenCredential() ;
 				$this->stop(__METHOD__) ;
-				$this->token_cache[$clientId] = $token['acces_token'] ;
-				return $token['access_token'] ;
+				throw new ApidaeException('invalid token',ApidaeException::INVALID_TOKEN,Array(
+					'debug' => $this->debug,
+					'result' => $result
+				)) ;
 			}
-			elseif ( $method == 'file_get_contents' )
-			{
-				// https://stackoverflow.com/a/2445332/2846837
-				// https://stackoverflow.com/a/14253379/2846837
-
-				$postdata = http_build_query(
-					Array(
-						'grant_type' => 'client_credentials'
-					)
-				) ;
-
-				$opts = Array(
-					'http' => Array(
-						'method' => 'POST',
-						'header' => 'Accept: application/json'."\r\n" .
-									'Content-Type: application/x-www-form-urlencoded'."\r\n".
-									'Authorization: Basic '.base64_encode($clientId.':'.$secret)."\r\n",
-						'content' => $postdata
-					)
-				) ;
-
-				$context = stream_context_create($opts) ;
-
-				$retour = file_get_contents($this->url_api().'oauth/token',false,$context) ;
-				if ( ! $retour )
-				{
-					if ( $this->debug )
-					{
-						$error = error_get_last() ;
-						echo '<pre>'.print_r($error,true).'</pre>' ;
-					}
-					$this->stop(__METHOD__) ;
-					return false ;
-				}
-
-				$retour_json = json_encode($retour) ;
-				if ( json_last_error() !== JSON_ERROR_NONE )
-				{
-					$this->stop(__METHOD__) ;
-					return false ;
-				}
-
-				$this->stop(__METHOD__) ;
-				$this->token_cache[$clientId] = $retour_json->access_token ;
-				return $retour_json->access_token ;
-			}
-			elseif ( $method == 'curl' )
-			{
-				$ch = curl_init() ;
-				// http://stackoverflow.com/questions/15729167/paypal-api-with-php-and-curl
-				curl_setopt($ch, CURLOPT_URL, $this->url_api().'oauth/token');
-				curl_setopt($ch, CURLOPT_HEADER, 1);
-				curl_setopt($ch, CURLOPT_VERBOSE, true);
-				curl_setopt($ch, CURLOPT_HTTPHEADER, array('Accept: application/json'));
-				curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-				//curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2);
-				//curl_setopt($ch, CURLOPT_SSLVERSION, 6);
-				curl_setopt($ch, CURLOPT_RETURNTRANSFER, true); 
-				curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true); 
-				curl_setopt($ch, CURLOPT_USERPWD, $clientId.":".$secret);
-				curl_setopt($ch, CURLOPT_POSTFIELDS, "grant_type=client_credentials");
-				curl_setopt($ch, CURLOPT_TIMEOUT, 4);
-				
-				$response = curl_exec($ch);
-
-				$header_size = curl_getinfo($ch, CURLINFO_HEADER_SIZE);
-				$http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-				$header = substr($response, 0, $header_size);
-				$body = substr($response, $header_size);
-				
-				$token_json = json_decode($body) ;
-				
-				if ( $http_code != 200 )
-				{
-					$this->stop(__METHOD__) ;
-					throw new \Exception(__CLASS__.':'.__METHOD__.':'.__LINE__.':http_code='.$http_code,$http_code) ;
-				}
-
-				if ( $debugToken )
-				{
-					echo '<pre>URL'."\n".$this->url_api().'oauth/token</pre>' ;
-					echo '<pre>CURL_GETINFO'."\n".print_r(curl_getinfo($ch),true).'</pre>' ;
-					echo '<pre>CURL_VERSION'."\n".print_r(curl_version(),true).'</pre>' ;
-					echo '<pre>HEADER'."\n".print_r($header,true).'</pre>' ;
-					echo '<pre>BODY'."\n".print_r($body,true).'</pre>' ;
-					echo '<pre>token_json'."\n".print_r($token_json,true).'</pre>' ;
-				}
-
-				if ( curl_errno($ch) !== 0 )
-				{
-					$this->stop(__METHOD__) ;
-					throw new \Exception(__LINE__.curl_error($ch), curl_errno($ch));
-				}
-				elseif ( json_last_error() !== JSON_ERROR_NONE )
-				{
-					$this->stop(__METHOD__) ;
-					throw new \Exception(__LINE__.'gimme_token : le retour de curl n\'est pas une chaîne json valide');
-				}
-				else
-				{
-					$this->stop(__METHOD__) ;
-					$this->token_cache[$clientId] = $token_json->access_token ;
-					return $token_json->access_token ;
-				}
-			}
+			
+			$this->stop(__METHOD__) ;
+			$this->token_cache[$clientId] = $token_json->access_token ;
+			return $token_json->access_token ;
 		}
 
 		public function debug($var,$titre=null)
@@ -253,14 +164,7 @@
 			$endline = "\n" ;
 			$h1 = strip_tags($className.' - '.$sujet) ;
 			$sujet = $h1 ;
-
-			$method = 'mail' ;
-
-			if ( class_exists('\PHPMailer\PHPMailer\PHPMailer') ) $method = 'phpmailer6' ;
-			elseif ( class_exists('\PHPMailer') ) $method = 'phpmailer5' ;
-
-			if ( $this->debug ) $sujet .= ' ['.$method.']' ;
-
+			
 			if ( is_array($msg) )
 			{
 				$new_msg = null ;
@@ -297,78 +201,22 @@
 			
 			$message_texte = strip_tags(nl2br($message_html)) ;
 			
-			if ( $method == 'phpmailer5' )
-			{
-				$mail = new \PHPMailer();
-				$mail->setFrom($from) ;
-				
-				foreach ( $mailto as $t )
-					$mail->addAddress($t) ;
-				
-				foreach ( $mails_admin as $mail_admin )
-					$mail->AddBCC($mail_admin) ;
+			$mail = new \PHPMailer\PHPMailer\PHPMailer();
+			$mail->setFrom($from) ;
+			
+			foreach ( $mailto as $t )
+				$mail->addAddress($t) ;
+			
+			foreach ( $mails_admin as $mail_admin )
+				$mail->AddBCC($mail_admin) ;
 
-				$mail->CharSet = 'UTF-8' ;
-				$mail->isHTML(true);
-				$mail->Subject = $sujet ;
-				$mail->Body    = $message_html ;
-				$mail->AltBody = $message_texte ;
-
-				return $mail->send();
-			}
-			elseif ( $method == 'phpmailer6' )
-			{
-				$mail = new \PHPMailer\PHPMailer\PHPMailer();
-				$mail->setFrom($from) ;
-				
-				foreach ( $mailto as $t )
-					$mail->addAddress($t) ;
-				
-				foreach ( $mails_admin as $mail_admin )
-					$mail->AddBCC($mail_admin) ;
-
-				$mail->CharSet = 'UTF-8' ;
-				$mail->isHTML(true);
-				$mail->Subject = $sujet ;
-				$mail->Body    = $message_html ;
-				$mail->AltBody = $message_texte ;
-				return $mail->send();
-			}
-			else
-			{
-				$boundary = md5(time()) ;
-				
-				$entete = Array() ;
-				$entete['From'] = $from ;
-				$entete['Bcc'] = implode(',',$mails_admin) ;
-				$entete['Date'] = @date("D, j M Y G:i:s O") ;
-				$entete['X-Mailer'] = 'PHP'.phpversion() ;
-				$entete['MIME-Version'] = '1.0' ;
-				$entete['Content-Type'] = 'multipart/alternative; boundary="'.$boundary.'"' ;
-				
-				$message = $endline ;
-				$message .= $endline."--".$boundary.$endline ;
-				$message .= "Content-Type: text/plain; charset=\"utf-8\"".$endline ;
-				$message .= "Content-Transfer-Encoding: 8bit".$endline ;
-				$message .= $endline.strip_tags(nl2br($message_html)) ;
-				$message .= $endline.$endline."--".$boundary.$endline ;
-				$message .= "Content-Type: text/html; charset=\"utf-8\"".$endline ;
-				$message .= "Content-Transfer-Encoding: 8bit;".$endline ;
-				$message .= $endline.$message_html ;
-				$message .= $endline.$endline."--".$boundary."--";
-				
-				$header = null ;
-				foreach ( $entete as $key => $value )
-				{
-					$header .= $key . ' : ' . $value . $endline ;
-				}
-
-				$ret = @mail(implode(',',$mailto),$sujet,$message,$header) ;
-				if ( ! $ret )
-					throw new \Exception('Erreur : '.print_r(error_get_last(),true)) ;
-				
-				return $ret ;
-			}
+			$mail->CharSet = 'UTF-8' ;
+			$mail->isHTML(true);
+			$mail->Subject = $sujet ;
+			$mail->Body    = $message_html ;
+			$mail->AltBody = $message_texte ;
+			return $mail->send();
+			
 		}
 
 		public function start($titre,$details=null) {
@@ -385,14 +233,120 @@
 		}
 
 		public function showException($e) {
-			echo '<link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" integrity="sha384-JcKb8q3iqJ61gNV9KGb8thSsNjpSL0n8PARn9HuZOnIxN0hoP+VmmDGMN5t9UJ0Z" crossorigin="anonymous">' ;
-			echo '<div class="alert alert-danger">' ;
-				echo '<h2>An error occured...</h2>' ;
-				echo '<p>'.$e->getMessage().'</p>' ;
-				echo '<p>Error code : '.$e->getCode().'</p>' ;
-				if ( $this->debug )
-					echo '<code style="font-size:.6em;white-space:pre;">'.print_r($e,true).'</code>' ;
-			echo '</div>' ;
+			ApidaeException::showException($e) ;
+		}
+
+		/**
+		 * Cette fonction a pour but de gérer tous les appels aux API Apidae.
+		 * Elle ne gère pas les erreurs elle-même, parce que selon les cas les erreurs n'ont pas la même signifiation :
+		 * un retour 404 sur un objet est acceptable, mais il ne l'est pas sur un "getUserProfile" par exemple (qui suppose que l'utilisateur soit identifié, et donc qu'il existe)
+		 * 
+		 * @param	string	$path	chemin relatif vers l'API (/api/v002/...)
+		 * @param	array|null	$params	paramètres
+		 * @param	string	$params['format']	Si json : déclenchera une exception en cas de retour non json
+		 * @param	string	$params['POST']
+		 * @param	string	$params['CUSTOMREQUEST']	PUT
+		 * @param	string	$params['POSTFIELDS']
+		 * @param	string	$params['USERPWD']	couple clientId:secret
+		 * @param	array	$params['header']
+		 * @param	string	$params['token']	token, récupéré le plus souvent avec gimme_token
+		 * @param	string	$params['url_type']	api|base (default : api)
+		 * @see		ApidaeSso::getSsoToken
+		 * @see		ApidaeSso::refreshSsoToken
+		 * @see		ApidaeSso::getUserProfile
+		 * @see		ApidaeSso::getUserPermissionOnObject
+		 * 
+		 */
+		protected function request(string $path,$params=null) {
+
+			$expr = '#^(/api/v002)?/[a-zA-Z0-9-_/]+#ui' ;
+			if ( ! preg_match($expr,$path) )
+				throw new ApidaeException('request : wrong path',ApidaeException::INVALID_PARAMETER,Array(
+					'debug' => $this->debug,
+					'method' => __METHOD__,
+					'preg_fail' => $expr.' failed on '.$path
+				)) ;
+			
+			// Juste une aide pour les cas où on passe /oauth/token au lieu de /api/v002/oauth/token
+			//if ( ! preg_match('#^/api/v002/#ui',$path) ) $path = '/api/v002'.$path ;
+
+			$header = Array() ;
+			if ( isset($params['header']) ) $header = $params['header'] ;
+			else
+			{
+				$header[] = 'Accept: application/json' ;
+				if ( isset($params['token']) ) $header[] = "Authorization: Bearer ".$params['token'] ;
+			}
+
+			if ( isset($params['url_type']) && $params['url_type'] == 'base' )
+				$url = $this->url_base().$path ;
+			else
+				$url = $this->url_api().$path ;
+
+			// Remplacement des // par /
+			$url = preg_replace('#([^:])//#','$1/',$url) ;
+
+			$ch = curl_init();
+			
+			$curl_opts = Array() ;
+
+			$curl_opts[CURLOPT_URL] = $url ;
+			
+			if ( sizeof($header) > 0 )
+				$curl_opts[CURLOPT_HTTPHEADER] = $header ;
+
+			if ( isset($params['USERPWD']) )
+				$curl_opts[CURLOPT_USERPWD] = $params['USERPWD'] ;
+			
+			if ( isset($params['POSTFIELDS']) )
+				$curl_opts[CURLOPT_POSTFIELDS] = $params['POSTFIELDS'] ;
+
+			if ( isset($params['CUSTOMREQUEST']) )
+				$curl_opts[CURLOPT_CUSTOMREQUEST] = $params['CUSTOMREQUEST'] ;
+
+			if ( isset($params['POST']) )
+				$curl_opts[CURLOPT_POST] = $params['POST'] ;
+
+			$curl_opts[CURLOPT_HEADER] = true ;
+			$curl_opts[CURLOPT_SSL_VERIFYPEER] = false ;
+			$curl_opts[CURLOPT_VERBOSE] = true ;
+			
+			$curl_opts[CURLOPT_ENCODING] = 'UTF-8' ;
+			$curl_opts[CURLOPT_RETURNTRANSFER] = true ;
+			$curl_opts[CURLOPT_FOLLOWLOCATION] = true ; 
+			$curl_opts[CURLOPT_CONNECTTIMEOUT] = $this->timeout ; 
+			$curl_opts[CURLOPT_TIMEOUT] = $this->timeout ;
+			
+			curl_setopt_array($ch,$curl_opts) ;
+
+			try {
+				$response = curl_exec($ch);
+
+				if ( $response === false ) throw new ApidaeException('curl_response false',ApidaeException::NO_RESPONSE) ;
+
+				$header_size = curl_getinfo($ch, CURLINFO_HEADER_SIZE);
+
+				$return = Array(
+					'code' => curl_getinfo($ch, CURLINFO_HTTP_CODE),
+					'header' => substr($response, 0, $header_size),
+					'body' => substr($response, $header_size)
+				) ;
+
+				$ret = json_decode($return['body']) ;
+				if ( json_last_error() == JSON_ERROR_NONE )
+				{
+					$return['object'] = $ret ;
+					$return['array'] = json_decode($return['body'],true) ;
+				}
+				elseif ( isset($params['format']) && $params['format'] == 'json' )
+					throw new ApidaeException('response body is not json',ApidaeException::NO_JSON) ;
+
+				return $return ;
+
+			} catch(ApidaeException $e) {
+				$details = Array('debug'=>$this->debug,'curl_opts'=>$curl_opts,'return'=>$return) ;
+				throw new ApidaeException($e->getMessage(),$e->getCode(),$details) ;
+			}
 		}
 
 	}
