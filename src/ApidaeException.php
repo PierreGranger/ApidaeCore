@@ -11,6 +11,7 @@
 
     class ApidaeException extends \Exception {
 
+        const UNIDENTIFIED_ERROR = 0 ;
         const NO_TOKEN = 1 ;
         const NO_SCOPE = 2 ;
         const NO_ERROR = 3 ;
@@ -34,19 +35,27 @@
             if ( is_array($details) && isset($details['debug']) && $details['debug'] === true )
             {
                 unset($details['debug']) ;
-                if ( isset($details['body']) ) $details['body'] = $this->extractBody($details['body']) ;
-                elseif ( isset($details['return']['body']) ) $details['return']['body'] = $this->extractBody($details['return']['body']) ;
                 $this->details = $details ;
             }
         }
 
-        private function extractBody($body) {
+        private static function extractBody($body) {
             if ( preg_match_all('#<p><b>(.+)</b>(.+)</p>#Ui',$body,$match) )
             {
                 $ret = Array() ;
                 foreach ( $match[1] as $k => $v )
                     $ret[$v] = strip_tags($match[2][$k]) ;
                 $ret['body'] = htmlentities($body) ;
+                return $ret ;
+            }
+            else
+            {
+                $tmp = json_decode($body) ;
+                if ( json_last_error() === JSON_ERROR_NONE )
+                {
+                    foreach ( $tmp as $k => $v )
+                        $ret[$k] = $v ;
+                }
                 return $ret ;
             }
             
@@ -72,11 +81,38 @@
         }
 
         public static function showException($e,$show=true) {
+
+            if ( get_class($e) == __CLASS__ )
+            {
+                $fooClass = new \ReflectionClass (__CLASS__);
+                $constants = $fooClass->getConstants() ;
+                if ( ( $tmp = array_search($e->code,$constants) ) !== false )
+                    $const = $tmp ;
+            }
+
+            $code = isset($const) ? $const : '#'.$e->code ;
+
             $ret = '<div style="background:#fcf8e3;padding:10px;">' ;
                 $ret .= '<h2>Une erreur est survenue</h2>' ;
-                $ret .= '<strong>'.__CLASS__. ": [{$e->code}]: {$e->message}\n";
+                $ret .= '<strong>ApidaeException '.$code.' : '.$e->message."\n";
                 if ( isset($e->details) && is_array($e->details) )
+                {
+                    if (
+                        isset($e->details['response'])
+                        //&& preg_match('#^GuzzleHttp\\.*\\Response$#ui',get_class($e->details['response']))
+                    )
+                    {
+                        $e->details['statusCode'] = $e->details['response']->getStatusCode() ;
+                        $e->details['reasonPhrase'] = $e->details['response']->getReasonPhrase() ;
+                        $e->details['body'] = self::extractBody($e->details['response']->getBody()) ;
+                        unset($e->details['response']) ;
+                    }
+
+                    if ( isset($details['body']) ) $details['body'] = self::extractBody($details['body']) ;
+                    elseif ( isset($details['return']['body']) ) $details['return']['body'] =self::extractBody($details['return']['body']) ;
+
                     $ret .= '<pre style="background:black;color:white;">'.print_r($e->details,true).'</pre>' ;
+                }
             $ret .= '</div>' ;
             if ( $show ) echo $ret ;
             else return $ret ;
