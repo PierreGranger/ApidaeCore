@@ -302,7 +302,7 @@ class ApidaeCore
 
 		$curl_opts[CURLOPT_HEADER] = true;
 		$curl_opts[CURLOPT_SSL_VERIFYPEER] = false;
-		$curl_opts[CURLOPT_VERBOSE] = true;
+		$curl_opts[CURLOPT_VERBOSE] = $this->debug;
 
 		$curl_opts[CURLOPT_ENCODING] = 'UTF-8';
 		$curl_opts[CURLOPT_RETURNTRANSFER] = true;
@@ -334,7 +334,7 @@ class ApidaeCore
 
 			return $return;
 		} catch (ApidaeException $e) {
-			$details = array('debug' => $this->debug, 'curl_opts' => $curl_opts, 'return' => $return);
+			$details = array('debug' => $this->debug, 'curl_opts' => $curl_opts, 'return' => @$return);
 			throw new ApidaeException($e->getMessage(), $e->getCode(), $details);
 		}
 	}
