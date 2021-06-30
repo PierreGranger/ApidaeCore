@@ -173,7 +173,7 @@ class ApidaeCore
 				$tble .= '<td>';
 				if (!is_array($value)) $tble .= stripslashes(nl2br($value));
 				else {
-					$tble .= '<pre>' . print_r($value, true) . '</pre>';
+					$tble .= '<pre>' . json_encode($value, JSON_PRETTY_PRINT) . '</pre>';
 				}
 				$tble .= '</td>';
 				$tble .= '</tr>';
