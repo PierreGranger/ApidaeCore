@@ -50,6 +50,9 @@ class ApidaeCore
 			else throw new ApidaeException('', ApidaeException::NO_PROD);
 		}
 
+		if ($this->type_prod == 'preprod')
+			$this->timeout = 30;
+
 		$this->_config = $params;
 
 		if (isset($params['timer'])) $this->timer = $params['timer'] ? true : false;
@@ -112,11 +115,11 @@ class ApidaeCore
 	{
 		if (!$this->debug) return;
 		echo '<p style="font-size:16px;font-weight:bold ;">[debug] ' . (($titre !== null) ? $titre : '') . ' / ' . gettype($var) . '</p>';
-		echo '<textarea style="color:white;background:black;font-family:monospace;font-size:0.8em;width:100%;height:50px;">';
-		if (is_array($var) || is_object($var) || gettype($var) == 'boolean') echo var_dump($var);
+		echo '<pre style="color:white;background:black;font-family:monospace;font-size:8px;width:100%;max-height:500px;overflow:auto;">';
+		if (is_array($var) || is_object($var) || gettype($var) == 'boolean') print_r($var);
 		elseif ($this->isJson($var)) echo json_encode($var, JSON_PRETTY_PRINT);
 		else echo $var;
-		echo '</textarea>';
+		echo '</pre>';
 	}
 
 	// https://stackoverflow.com/questions/6041741/fastest-way-to-check-if-a-string-is-json-in-php
@@ -312,30 +315,37 @@ class ApidaeCore
 
 		curl_setopt_array($ch, $curl_opts);
 
-		try {
-			$response = curl_exec($ch);
+		$response = curl_exec($ch);
 
-			if ($response === false) throw new ApidaeException('curl_response false', ApidaeException::NO_RESPONSE);
-
-			$header_size = curl_getinfo($ch, CURLINFO_HEADER_SIZE);
-
-			$return = array(
-				'code' => curl_getinfo($ch, CURLINFO_HTTP_CODE),
-				'header' => substr($response, 0, $header_size),
-				'body' => substr($response, $header_size)
-			);
-
-			$ret = json_decode($return['body']);
-			if (json_last_error() == JSON_ERROR_NONE) {
-				$return['object'] = $ret;
-				$return['array'] = json_decode($return['body'], true);
-			} elseif (isset($params['format']) && $params['format'] == 'json')
-				throw new ApidaeException('response body is not json', ApidaeException::NO_JSON);
-
-			return $return;
-		} catch (ApidaeException $e) {
-			$details = array('debug' => $this->debug, 'curl_opts' => $curl_opts, 'return' => @$return);
-			throw new ApidaeException($e->getMessage(), $e->getCode(), $details);
+		if ($response === false) {
+			$details = [
+				'curl_error' => curl_error($ch),
+				'curl_opts' => $curl_opts
+			];
+			throw new ApidaeException('curl_response false', ApidaeException::NO_RESPONSE, $details);
 		}
+
+		$header_size = curl_getinfo($ch, CURLINFO_HEADER_SIZE);
+
+		$return = array(
+			'code' => curl_getinfo($ch, CURLINFO_HTTP_CODE),
+			'header' => substr($response, 0, $header_size),
+			'body' => substr($response, $header_size)
+		);
+
+		$ret = json_decode($return['body']);
+		if (json_last_error() == JSON_ERROR_NONE) {
+			$return['object'] = $ret;
+			$return['array'] = json_decode($return['body'], true);
+		} elseif (isset($params['format']) && $params['format'] == 'json') {
+			$details = [
+				'debug' => $this->debug,
+				'curl_opts' => $curl_opts,
+				'return' => @$return
+			];
+			throw new ApidaeException('response body is not json', ApidaeException::NO_JSON, $details);
+		}
+
+		return $return;
 	}
 }
