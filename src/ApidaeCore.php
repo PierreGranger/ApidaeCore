@@ -73,6 +73,12 @@ class ApidaeCore
 		return self::$url_api[$this->type_prod];
 	}
 
+	public function setTimeout(int $timeout)
+	{
+		if ((int) $timeout > 5 && (int) $timeout < 300)
+			$this->timeout = (int) $timeout;
+	}
+
 	public function gimme_token($clientId = null, $secret = null, $debugToken = false)
 	{
 		$this->start(__METHOD__);
