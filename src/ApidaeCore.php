@@ -41,6 +41,9 @@ class ApidaeCore
 
 	private $token_cache;
 
+	protected $lastPostfields;
+	protected $lastResult;
+
 	public function __construct(array $params = null)
 	{
 
@@ -261,15 +264,15 @@ class ApidaeCore
 	 */
 	protected function request(string $path, $params = null)
 	{
+		$this->lastResult = null;
 
 		$expr = '#^(/api/v002)?/[a-zA-Z0-9-_/]+#ui';
 		if (!preg_match($expr, $path))
-			throw new ApidaeException('request : wrong path', ApidaeException::INVALID_PARAMETER, array(
+			throw new ApidaeException('request : wrong path', ApidaeException::INVALID_PARAMETER, [
 				'debug' => $this->debug,
 				'method' => __METHOD__,
 				'preg_fail' => $expr . ' failed on ' . $path
-			));
-
+			]);
 		// Juste une aide pour les cas où on passe /oauth/token au lieu de /api/v002/oauth/token
 		//if ( ! preg_match('#^/api/v002/#ui',$path) ) $path = '/api/v002'.$path ;
 
@@ -300,8 +303,10 @@ class ApidaeCore
 		if (isset($params['USERPWD']))
 			$curl_opts[CURLOPT_USERPWD] = $params['USERPWD'];
 
-		if (isset($params['POSTFIELDS']))
+		if (isset($params['POSTFIELDS'])) {
 			$curl_opts[CURLOPT_POSTFIELDS] = $params['POSTFIELDS'];
+			$this->lastPostfields = $params['POSTFIELDS'];
+		}
 
 		if (isset($params['CUSTOMREQUEST']))
 			$curl_opts[CURLOPT_CUSTOMREQUEST] = $params['CUSTOMREQUEST'];
@@ -343,6 +348,7 @@ class ApidaeCore
 		if (json_last_error() == JSON_ERROR_NONE) {
 			$return['object'] = $ret;
 			$return['array'] = json_decode($return['body'], true);
+			$return = array_merge($return, $return['array']);
 		} elseif (isset($params['format']) && $params['format'] == 'json') {
 			$details = [
 				'debug' => $this->debug,
@@ -352,6 +358,45 @@ class ApidaeCore
 			throw new ApidaeException('response body is not json', ApidaeException::NO_JSON, $details);
 		}
 
+		$this->lastResult = $return;
 		return $return;
+	}
+
+	/**
+	 * Renvoie le détail de $result de ApidaeCore::request
+	 * En cas de retour correct, renvoie un tableau :
+	 * [
+	 * 	'code' => 200,
+	 * 	'header' => 'HTTP/1.1 100 Continue...',
+	 * 	'body' => '{"status":"MODIFICATION_VALIDATION_ASKED"}',
+	 * 	'object' => {
+	 * 		'status' => 'MODIFICATION_VALIDATION_ASKED'
+	 * 	}
+	 * 	'array' => [
+	 * 		'status' => 'MODIFICATION_VALIDATION_ASKED'
+	 * 	]
+	 * ]
+	 * 
+	 * Exemple erreur
+	 * [
+	 * 	'body' => '{"message":"Cet objet est déjà en cours de modification","errorType":"ECRITURE_FORBIDDEN}',
+	 * 	'object' => {
+	 * 		'message' => 'Cet objet...',
+	 * 		'errorType' => 'ECRITURE_FORBIDDEN,
+	 * 	},
+	 * 	'array' => [
+	 * 		'message' => 'Cet objet...',
+	 * 		'errorType' => 'ECRITURE_FORBIDDEN,
+	 * 	]
+	 * ]
+	 */
+	public function lastResult()
+	{
+		return $this->lastResult;
+	}
+
+	public function lastPostfields()
+	{
+		return $this->lastPostfields;
 	}
 }
