@@ -15,13 +15,17 @@ class ApidaeCore
 {
 
 	private static $url_api = array(
-		'preprod' => 'https://api.apidae-tourisme-recette.accelance.net/',
-		'prod' => 'https://api.apidae-tourisme.com/'
+		'preprod' 	=> 'https://api.apidae-tourisme-recette.accelance.net/',
+		'prod' 		=> 'https://api.apidae-tourisme.com/',
+		'dev' 		=> 'https://api.apidae-tourisme.dev/',
+		'cooking' 	=> 'https://api.apidae-tourisme.cooking/'
 	);
 
 	private static $url_base = array(
-		'preprod' => 'https://base.apidae-tourisme-recette.accelance.net/',
-		'prod' => 'https://base.apidae-tourisme.com/'
+		'preprod' 	=> 'https://base.apidae-tourisme-recette.accelance.net/',
+		'prod' 		=> 'https://base.apidae-tourisme.com/',
+		'dev' 		=> 'https://base.apidae-tourisme.dev/',
+		'cooking' 	=> 'https://base.apidae-tourisme.cooking/'
 	);
 
 	/**
@@ -35,7 +39,7 @@ class ApidaeCore
 	protected $debug;
 	protected $timer;
 
-	public static $idApidae = array(1, 1157); // Identifiants des membres Auvergne - Rhône-Alpes Tourisme et Apidae Tourisme
+	public static $idApidae = [1, 1157]; // Identifiants des membres Auvergne - Rhône-Alpes Tourisme et Apidae Tourisme
 
 	protected $_config;
 
@@ -43,6 +47,9 @@ class ApidaeCore
 
 	protected $lastPostfields;
 	protected $lastResult;
+
+	protected $custom_url_api = null;
+	protected $custom_url_base = null;
 
 	public function __construct(array $params = null)
 	{
@@ -53,7 +60,10 @@ class ApidaeCore
 			else throw new ApidaeException('', ApidaeException::NO_PROD);
 		}
 
-		if ($this->type_prod == 'preprod')
+		if (isset($params['url_api'])) $this->custom_url_api = $params['url_api'];
+		if (isset($params['url_base'])) $this->custom_url_base = $params['url_base'];
+
+		if (in_array($this->type_prod, ['preprod', 'dev']))
 			$this->timeout = 30;
 
 		$this->_config = $params;
@@ -68,11 +78,13 @@ class ApidaeCore
 
 	public function url_base()
 	{
+		if ($this->custom_url_base != null) return $this->custom_url_base;
 		return self::$url_base[$this->type_prod];
 	}
 
 	public function url_api()
 	{
+		if ($this->custom_url_api != null) return $this->custom_url_api;
 		return self::$url_api[$this->type_prod];
 	}
 
@@ -273,8 +285,6 @@ class ApidaeCore
 				'method' => __METHOD__,
 				'preg_fail' => $expr . ' failed on ' . $path
 			]);
-		// Juste une aide pour les cas où on passe /oauth/token au lieu de /api/v002/oauth/token
-		//if ( ! preg_match('#^/api/v002/#ui',$path) ) $path = '/api/v002'.$path ;
 
 		$header = array();
 		if (isset($params['header'])) $header = $params['header'];
@@ -338,17 +348,41 @@ class ApidaeCore
 
 		$header_size = curl_getinfo($ch, CURLINFO_HEADER_SIZE);
 
-		$return = array(
+		$return = [
 			'code' => curl_getinfo($ch, CURLINFO_HTTP_CODE),
 			'header' => substr($response, 0, $header_size),
 			'body' => substr($response, $header_size)
-		);
+		];
 
 		$ret = json_decode($return['body']);
 		if (json_last_error() == JSON_ERROR_NONE) {
+			/**
+			 * Jusque là le retour était déposé 2 fois, sous 2 formes, dans 2 entrées de $return :
+			 * $return['object'] et $return['array']
+			 * à l'usage ça ne présente aucun intérêt d'avoir les 2, et ça rajoute un niveau pour rien.
+			 * Depuis la 0.5 le retour est déposé directement dans $return[].
+			 * On avait donc :
+			 * 	$return = [
+			 * 	'code' => ...
+			 * 	'body' => ...
+			 * 	'header' => ...
+			 * 	'array' => ['errorType' => ...,'message' =>...]
+			 * 	'object' => {'errorType' => ...,'message' => ...}
+			 * ]
+			 * On privilégie désormais :
+			 * $return[
+			 * 	'code' => ...
+			 * 	'body' => ...
+			 * 	'header' => ...
+			 * 	'errorType' => ...
+			 * 	'message' => ...
+			 * ]
+			 */
 			$return['object'] = $ret;
+			$return['object']->deprecated = true;
 			$return['array'] = json_decode($return['body'], true);
 			$return = array_merge($return, $return['array']);
+			$return['array']['deprecated'] = true;
 		} elseif (isset($params['format']) && $params['format'] == 'json') {
 			$details = [
 				'debug' => $this->debug,
