@@ -119,8 +119,6 @@ class ApidaeCore
 			'format' => 'json'
 		]);
 
-		$token_json = $result['object'];
-
 		if ($result['code'] != 200) {
 			$this->stop(__METHOD__);
 			throw new ApidaeException('invalid token', ApidaeException::INVALID_TOKEN, [
@@ -130,8 +128,8 @@ class ApidaeCore
 		}
 
 		$this->stop(__METHOD__);
-		$this->token_cache[$clientId] = $token_json->access_token;
-		return $token_json->access_token;
+		$this->token_cache[$clientId] = $result['access_token'];
+		return $result['access_token'];
 	}
 
 	public function debug($var, $titre = null)
