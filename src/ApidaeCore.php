@@ -32,7 +32,7 @@ class ApidaeCore
 	 * 
 	 * @var string prod|preprod
 	 */
-	private $type_prod = 'prod';
+	private $env = 'prod';
 
 	protected $timeout = 15; // secondes
 
@@ -55,15 +55,17 @@ class ApidaeCore
 	{
 
 		if (isset($params['debug'])) $this->debug = $params['debug'] ? true : false;
-		if (isset($params['type_prod'])) {
-			if (in_array($params['type_prod'], array_keys(self::$url_api))) $this->type_prod = $params['type_prod'];
+		if (isset($params['type_prod']) && !isset($params['env'])) $params['env'] = $params['type_prod'];
+
+		if (isset($params['env'])) {
+			if (in_array($params['env'], array_keys(self::$url_api))) $this->env = $params['env'];
 			else throw new ApidaeException('', ApidaeException::NO_PROD);
 		}
 
 		if (isset($params['url_api'])) $this->custom_url_api = $params['url_api'];
 		if (isset($params['url_base'])) $this->custom_url_base = $params['url_base'];
 
-		if (in_array($this->type_prod, ['preprod', 'dev']))
+		if (in_array($this->env, ['preprod', 'dev']))
 			$this->timeout = 30;
 
 		$this->_config = $params;
@@ -79,13 +81,13 @@ class ApidaeCore
 	public function url_base()
 	{
 		if ($this->custom_url_base != null) return $this->custom_url_base;
-		return self::$url_base[$this->type_prod];
+		return self::$url_base[$this->env];
 	}
 
 	public function url_api()
 	{
 		if ($this->custom_url_api != null) return $this->custom_url_api;
-		return self::$url_api[$this->type_prod];
+		return self::$url_api[$this->env];
 	}
 
 	public function setTimeout(int $timeout)
