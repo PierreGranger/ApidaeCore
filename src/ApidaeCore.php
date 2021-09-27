@@ -358,7 +358,7 @@ class ApidaeCore
 
 		$body_array = json_decode($return['body'], true);
 
-		if (json_last_error() !== JSON_ERROR_NONE) {
+		if (json_last_error() == JSON_ERROR_NONE) {
 			if (is_array($body_array)) $return = array_merge($return, $body_array);
 		} elseif (isset($params['format']) && $params['format'] == 'json') {
 			$details = [
