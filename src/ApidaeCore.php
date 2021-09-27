@@ -381,10 +381,8 @@ class ApidaeCore
 			 * ]
 			 */
 			$return['object'] = $ret;
-			$return['object']->deprecated = true;
 			$return['array'] = json_decode($return['body'], true);
 			$return = array_merge($return, $return['array']);
-			$return['array']['deprecated'] = true;
 		} elseif (isset($params['format']) && $params['format'] == 'json') {
 			$details = [
 				'debug' => $this->debug,
