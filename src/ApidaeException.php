@@ -40,7 +40,7 @@ class ApidaeException extends \Exception
     private static function extractBody($body)
     {
         if (preg_match_all('#<p><b>(.+)</b>(.+)</p>#Ui', $body, $match)) {
-            $ret = array();
+            $ret = [];
             foreach ($match[1] as $k => $v)
                 $ret[$v] = strip_tags($match[2][$k]);
             $ret['body'] = htmlentities($body);

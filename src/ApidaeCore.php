@@ -14,19 +14,19 @@ use PierreGranger\ApidaeException;
 class ApidaeCore
 {
 
-	private static $url_api = array(
+	private static $url_api = [
 		'preprod' 	=> 'https://api.apidae-tourisme-recette.accelance.net/',
 		'prod' 		=> 'https://api.apidae-tourisme.com/',
 		'dev' 		=> 'https://api.apidae-tourisme.dev/',
 		'cooking' 	=> 'https://api.apidae-tourisme.cooking/'
-	);
+	];
 
-	private static $url_base = array(
+	private static $url_base = [
 		'preprod' 	=> 'https://base.apidae-tourisme-recette.accelance.net/',
 		'prod' 		=> 'https://base.apidae-tourisme.com/',
 		'dev' 		=> 'https://base.apidae-tourisme.dev/',
 		'cooking' 	=> 'https://base.apidae-tourisme.cooking/'
-	);
+	];
 
 	/**
 	 * 
@@ -75,7 +75,7 @@ class ApidaeCore
 			$this->timer = new ApidaeTimer(true);
 		}
 
-		$this->token_store = array();
+		$this->token_store = [];
 	}
 
 	public function url_base()
@@ -113,20 +113,20 @@ class ApidaeCore
 			return $this->token_cache[$clientId];
 		}
 
-		$result = $this->request('/oauth/token', array(
+		$result = $this->request('/oauth/token', [
 			'USERPWD' => $clientId . ":" . $secret,
 			'POSTFIELDS' => "grant_type=client_credentials",
 			'format' => 'json'
-		));
+		]);
 
 		$token_json = $result['object'];
 
 		if ($result['code'] != 200) {
 			$this->stop(__METHOD__);
-			throw new ApidaeException('invalid token', ApidaeException::INVALID_TOKEN, array(
+			throw new ApidaeException('invalid token', ApidaeException::INVALID_TOKEN, [
 				'debug' => $this->debug,
 				'result' => $result
-			));
+			]);
 		}
 
 		$this->stop(__METHOD__);
@@ -163,7 +163,7 @@ class ApidaeCore
 		} else {
 			if (!filter_var($this->_config['mail_admin'], FILTER_VALIDATE_EMAIL)) throw new \Exception(__LINE__ . ' mail admin incorrect : ' . $this->_config['mail_admin']);
 			$first_mail_admin = $this->_config['mail_admin'];
-			$mails_admin = array($this->_config['mail_admin']);
+			$mails_admin = [$this->_config['mail_admin']];
 		}
 
 		$from = (isset($this->_config['mail_expediteur']) && filter_var($this->_config['mail_expediteur'], FILTER_VALIDATE_EMAIL)) ? $this->_config['mail_expediteur'] : $first_mail_admin;
@@ -173,7 +173,7 @@ class ApidaeCore
 				if (!filter_var($mt, FILTER_VALIDATE_EMAIL)) throw new \Exception(__LINE__ . ' mail to incorrect' . print_r($mt, true));
 		} elseif ($mailto !== null) {
 			if (!filter_var($mailto, FILTER_VALIDATE_EMAIL)) throw new \Exception(__LINE__ . ' mail to incorrect' . print_r($mailto, true));
-			$mailto = array($mailto);
+			$mailto = [$mailto];
 		} else
 			$mailto = $mails_admin;
 
@@ -288,7 +288,7 @@ class ApidaeCore
 				'preg_fail' => $expr . ' failed on ' . $path
 			]);
 
-		$header = array();
+		$header = [];
 		if (isset($params['header'])) $header = $params['header'];
 		else {
 			$header[] = 'Accept: application/json';
@@ -305,7 +305,7 @@ class ApidaeCore
 
 		$ch = curl_init();
 
-		$curl_opts = array();
+		$curl_opts = [];
 
 		$curl_opts[CURLOPT_URL] = $url;
 
@@ -356,34 +356,8 @@ class ApidaeCore
 			'body' => substr($response, $header_size)
 		];
 
-		$ret = json_decode($return['body']);
-		if (json_last_error() == JSON_ERROR_NONE) {
-			/**
-			 * Jusque là le retour était déposé 2 fois, sous 2 formes, dans 2 entrées de $return :
-			 * $return['object'] et $return['array']
-			 * à l'usage ça ne présente aucun intérêt d'avoir les 2, et ça rajoute un niveau pour rien.
-			 * Depuis la 0.5 le retour est déposé directement dans $return[].
-			 * On avait donc :
-			 * 	$return = [
-			 * 	'code' => ...
-			 * 	'body' => ...
-			 * 	'header' => ...
-			 * 	'array' => ['errorType' => ...,'message' =>...]
-			 * 	'object' => {'errorType' => ...,'message' => ...}
-			 * ]
-			 * On privilégie désormais :
-			 * $return[
-			 * 	'code' => ...
-			 * 	'body' => ...
-			 * 	'header' => ...
-			 * 	'errorType' => ...
-			 * 	'message' => ...
-			 * ]
-			 */
-			$return['object'] = $ret;
-			$return['array'] = json_decode($return['body'], true);
-			$return = array_merge($return, $return['array']);
-		} elseif (isset($params['format']) && $params['format'] == 'json') {
+		$return = json_decode($return['body'], true);
+		if (json_last_error() !== JSON_ERROR_NONE && isset($params['format']) && $params['format'] == 'json') {
 			$details = [
 				'debug' => $this->debug,
 				'curl_opts' => $curl_opts,
