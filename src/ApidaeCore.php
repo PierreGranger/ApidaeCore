@@ -15,22 +15,20 @@ class ApidaeCore
 {
 
 	private static $url_api = [
-		'preprod' 	=> 'https://api.apidae-tourisme-recette.accelance.net/',
-		'prod' 		=> 'https://api.apidae-tourisme.com/',
-		'dev' 		=> 'https://api.apidae-tourisme.dev/',
-		'cooking' 	=> 'https://api.apidae-tourisme.cooking/'
+		'prod' => 'https://api.apidae-tourisme.com/',
+		'dev' => 'https://api.apidae-tourisme.dev/',
+		'cooking' => 'https://api.apidae-tourisme.cooking/'
 	];
 
 	private static $url_base = [
-		'preprod' 	=> 'https://base.apidae-tourisme-recette.accelance.net/',
-		'prod' 		=> 'https://base.apidae-tourisme.com/',
-		'dev' 		=> 'https://base.apidae-tourisme.dev/',
-		'cooking' 	=> 'https://base.apidae-tourisme.cooking/'
+		'prod' => 'https://base.apidae-tourisme.com/',
+		'dev' => 'https://base.apidae-tourisme.dev/',
+		'cooking' => 'https://base.apidae-tourisme.cooking/'
 	];
 
 	/**
 	 * 
-	 * @var string prod|preprod
+	 * @var string prod|dev|cooking
 	 */
 	private $env = 'prod';
 
@@ -54,23 +52,30 @@ class ApidaeCore
 	public function __construct(array $params = null)
 	{
 
-		if (isset($params['debug'])) $this->debug = $params['debug'] ? true : false;
-		if (isset($params['type_prod']) && !isset($params['env'])) $params['env'] = $params['type_prod'];
+		if (isset($params['debug']))
+			$this->debug = $params['debug'] ? true : false;
+		if (isset($params['type_prod']) && !isset($params['env']))
+			$params['env'] = $params['type_prod'];
 
 		if (isset($params['env'])) {
-			if (in_array($params['env'], array_keys(self::$url_api))) $this->env = $params['env'];
-			else throw new ApidaeException('', ApidaeException::NO_PROD);
+			if (in_array($params['env'], array_keys(self::$url_api)))
+				$this->env = $params['env'];
+			else
+				throw new ApidaeException('', ApidaeException::NO_PROD);
 		}
 
-		if (isset($params['url_api'])) $this->custom_url_api = $params['url_api'];
-		if (isset($params['url_base'])) $this->custom_url_base = $params['url_base'];
+		if (isset($params['url_api']))
+			$this->custom_url_api = $params['url_api'];
+		if (isset($params['url_base']))
+			$this->custom_url_base = $params['url_base'];
 
 		if (in_array($this->env, ['preprod', 'dev']))
 			$this->timeout = 30;
 
 		$this->_config = $params;
 
-		if (isset($params['timer'])) $this->timer = $params['timer'] ? true : false;
+		if (isset($params['timer']))
+			$this->timer = $params['timer'] ? true : false;
 		if ($this->timer) {
 			$this->timer = new ApidaeTimer(true);
 		}
@@ -80,20 +85,22 @@ class ApidaeCore
 
 	public function url_base()
 	{
-		if ($this->custom_url_base != null) return $this->custom_url_base;
+		if ($this->custom_url_base != null)
+			return $this->custom_url_base;
 		return self::$url_base[$this->env];
 	}
 
 	public function url_api()
 	{
-		if ($this->custom_url_api != null) return $this->custom_url_api;
+		if ($this->custom_url_api != null)
+			return $this->custom_url_api;
 		return self::$url_api[$this->env];
 	}
 
 	public function setTimeout(int $timeout)
 	{
-		if ((int) $timeout > 5 && (int) $timeout < 300)
-			$this->timeout = (int) $timeout;
+		if ((int)$timeout > 5 && (int)$timeout < 300)
+			$this->timeout = (int)$timeout;
 	}
 
 	public function gimme_token($clientId = null, $secret = null, $debugToken = false)
@@ -134,13 +141,30 @@ class ApidaeCore
 
 	public function debug($var, $titre = null)
 	{
-		if (!$this->debug) return;
-		echo '<p style="font-size:16px;font-weight:bold ;">[debug] ' . (($titre !== null) ? $titre : '') . ' / ' . gettype($var) . '</p>';
-		echo '<pre style="color:white;background:black;font-family:monospace;font-size:8px;width:100%;max-height:500px;overflow:auto;">';
-		if (is_array($var) || is_object($var) || gettype($var) == 'boolean') print_r($var);
-		elseif ($this->isJson($var)) echo json_encode($var, JSON_PRETTY_PRINT);
-		else echo $var;
-		echo '</pre>';
+		if (!$this->debug)
+			return;
+		if (php_sapi_name() !== 'cli') {
+			echo '<p style="font-size:16px;font-weight:bold ;">[debug] ' . (($titre !== null) ? $titre : '') . ' / ' . gettype($var) . '</p>' . PHP_EOL;
+			echo '<pre style="color:white;background:black;font-family:monospace;font-size:8px;width:100%;max-height:500px;overflow:auto;">' . PHP_EOL;
+			if (is_object($var) || gettype($var) == 'boolean')
+				print_r($var);
+			elseif (is_array($var) || $this->isJson($var))
+				echo json_encode($var, JSON_PRETTY_PRINT);
+			else
+				echo $var;
+			echo PHP_EOL . '</pre>' . PHP_EOL;
+		}
+		else {
+			if ($titre)
+				echo $titre . PHP_EOL;
+			if (is_object($var) || gettype($var) == 'boolean')
+				print_r($var);
+			elseif (is_array($var) || $this->isJson($var))
+				echo json_encode($var, JSON_PRETTY_PRINT);
+			else
+				echo $var;
+			echo PHP_EOL;
+		}
 	}
 
 	// https://stackoverflow.com/questions/6041741/fastest-way-to-check-if-a-string-is-json-in-php
@@ -154,12 +178,16 @@ class ApidaeCore
 	{
 		if (is_array($this->_config['mail_admin'])) {
 			foreach ($this->_config['mail_admin'] as $mail_admin) {
-				if (!filter_var($mail_admin, FILTER_VALIDATE_EMAIL)) throw new \Exception(__LINE__ . ' mail admin incorrect : ' . $mail_admin);
-				if (!isset($first_mail_admin)) $first_mail_admin = $mail_admin;
+				if (!filter_var($mail_admin, FILTER_VALIDATE_EMAIL))
+					throw new \Exception(__LINE__ . ' mail admin incorrect : ' . $mail_admin);
+				if (!isset($first_mail_admin))
+					$first_mail_admin = $mail_admin;
 			}
 			$mails_admin = $this->_config['mail_admin'];
-		} else {
-			if (!filter_var($this->_config['mail_admin'], FILTER_VALIDATE_EMAIL)) throw new \Exception(__LINE__ . ' mail admin incorrect : ' . $this->_config['mail_admin']);
+		}
+		else {
+			if (!filter_var($this->_config['mail_admin'], FILTER_VALIDATE_EMAIL))
+				throw new \Exception(__LINE__ . ' mail admin incorrect : ' . $this->_config['mail_admin']);
 			$first_mail_admin = $this->_config['mail_admin'];
 			$mails_admin = [$this->_config['mail_admin']];
 		}
@@ -168,18 +196,19 @@ class ApidaeCore
 
 		if (is_array($mailto)) {
 			foreach ($mailto as $mt)
-				if (!filter_var($mt, FILTER_VALIDATE_EMAIL)) throw new \Exception(__LINE__ . ' mail to incorrect' . print_r($mt, true));
-		} elseif ($mailto !== null) {
-			if (!filter_var($mailto, FILTER_VALIDATE_EMAIL)) throw new \Exception(__LINE__ . ' mail to incorrect' . print_r($mailto, true));
+				if (!filter_var($mt, FILTER_VALIDATE_EMAIL))
+					throw new \Exception(__LINE__ . ' mail to incorrect' . print_r($mt, true));
+		}
+		elseif ($mailto !== null) {
+			if (!filter_var($mailto, FILTER_VALIDATE_EMAIL))
+				throw new \Exception(__LINE__ . ' mail to incorrect' . print_r($mailto, true));
 			$mailto = [$mailto];
-		} else
+		}
+		else
 			$mailto = $mails_admin;
 
-		$reflect = new \ReflectionClass($this);
-		$className = $reflect->getShortName();
-
 		$endline = "\n";
-		$h1 = strip_tags($className . ' - ' . $sujet);
+		$h1 = strip_tags($sujet);
 		$sujet = $h1;
 
 		if (is_array($msg)) {
@@ -195,7 +224,8 @@ class ApidaeCore
 				$tble .= '<tr>';
 				$tble .= '<th><strong>' . ucfirst($key) . '</strong></th>';
 				$tble .= '<td>';
-				if (!is_array($value)) $tble .= stripslashes(nl2br($value));
+				if (!is_array($value))
+					$tble .= stripslashes(nl2br($value));
 				else {
 					$tble .= '<pre>' . json_encode($value, JSON_PRETTY_PRINT) . '</pre>';
 				}
@@ -227,7 +257,7 @@ class ApidaeCore
 		$mail->CharSet = 'UTF-8';
 		$mail->isHTML(true);
 		$mail->Subject = $sujet;
-		$mail->Body    = $message_html;
+		$mail->Body = $message_html;
 		$mail->AltBody = $message_texte;
 		return $mail->send();
 	}
@@ -287,10 +317,12 @@ class ApidaeCore
 			]);
 
 		$header = [];
-		if (isset($params['header'])) $header = $params['header'];
+		if (isset($params['header']))
+			$header = $params['header'];
 		else {
 			$header[] = 'Accept: application/json';
-			if (isset($params['token'])) $header[] = "Authorization: Bearer " . $params['token'];
+			if (isset($params['token']))
+				$header[] = "Authorization: Bearer " . $params['token'];
 		}
 
 		if (isset($params['url_type']) && $params['url_type'] == 'base')
@@ -326,7 +358,9 @@ class ApidaeCore
 
 		$curl_opts[CURLOPT_HEADER] = true;
 		$curl_opts[CURLOPT_SSL_VERIFYPEER] = false;
-		$curl_opts[CURLOPT_VERBOSE] = $this->debug;
+
+		/** Le verbose affiche surtout des infos d'identification, en général peu utiles */
+		//$curl_opts[CURLOPT_VERBOSE] = $this->debug;
 
 		$curl_opts[CURLOPT_ENCODING] = 'UTF-8';
 		$curl_opts[CURLOPT_RETURNTRANSFER] = true;
@@ -357,8 +391,10 @@ class ApidaeCore
 		$body_array = json_decode($return['body'], true);
 
 		if (json_last_error() == JSON_ERROR_NONE) {
-			if (is_array($body_array)) $return = array_merge($return, $body_array);
-		} elseif (isset($params['format']) && $params['format'] == 'json') {
+			if (is_array($body_array))
+				$return = array_merge($return, $body_array);
+		}
+		elseif (isset($params['format']) && $params['format'] == 'json') {
 			$details = [
 				'debug' => $this->debug,
 				'curl_opts' => $curl_opts,
