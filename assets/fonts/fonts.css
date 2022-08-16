@@ -44,12 +44,12 @@
     font-family: "avenir";
     font-style: normal;
     font-weight: "normal";
-    src: url(./Avenir-Roman.f9e40479.ttf) format("truetype");
+    src: url(./Avenir-Roman.ttf) format("truetype");
 }
 
 @font-face {
     font-family: "avenir";
     font-style: bold;
     font-weight: "bold";
-    src: url(./Avenir-Black.d02ff1fc.ttf) format("truetype");
+    src: url(./Avenir-Black.ttf) format("truetype");
 }
