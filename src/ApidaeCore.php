@@ -340,11 +340,11 @@ class ApidaeCore
         $header = [];
         if (isset($params['header'])) {
             $header = $params['header'];
-        } else {
-            $header[] = 'Accept: application/json';
-            if (isset($params['token'])) {
-                $header[] = "Authorization: Bearer " . $params['token'];
-            }
+        }
+
+        $header[] = 'Accept: application/json';
+        if (isset($params['token'])) {
+            $header[] = "Authorization: Bearer " . $params['token'];
         }
 
         if (isset($params['url_type']) && $params['url_type'] == 'base') {
@@ -470,5 +470,10 @@ class ApidaeCore
     public function lastPostfields()
     {
         return $this->lastPostfields;
+    }
+
+    public function getEnv()
+    {
+        return $this->env ;
     }
 }
