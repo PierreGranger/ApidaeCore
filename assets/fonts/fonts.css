@@ -2,54 +2,54 @@
     font-family: "arial";
     font-style: normal;
     font-weight: "normal";
-    src: url(./Arial.ttf) format("truetype");
+    src: url(Arial.ttf) format("truetype");
 }
 
 @font-face {
     font-family: "arial";
     font-style: bold;
     font-weight: "bold";
-    src: url("./Arial Bold.ttf") format("truetype");
+    src: url("Arial Bold.ttf") format("truetype");
 }
 
 @font-face {
     font-family: "rebrand";
     font-style: bold;
     font-weight: "bold";
-    src: url("./Rebrand Dis ExBold.ttf") format("truetype");
+    src: url("Rebrand Dis ExBold.ttf") format("truetype");
 }
 
 @font-face {
     font-family: "niramit";
     font-style: bold;
     font-weight: "bold";
-    src: url(./Niramit-SemiBold.ttf) format("truetype");
+    src: url(Niramit-SemiBold.ttf) format("truetype");
 }
 
 @font-face {
     font-family: "niramit";
     font-style: normal;
     font-weight: "normal";
-    src: url(./Niramit-Regular.ttf) format("truetype");
+    src: url(Niramit-Regular.ttf) format("truetype");
 }
 
 @font-face {
     font-family: "myriadpro";
     font-style: normal;
     font-weight: "normal";
-    src: url(./MyriadPro-Regular.otf) format("opentype");
+    src: url(MyriadPro-Regular.otf) format("opentype");
 }
 
 @font-face {
     font-family: "avenir";
     font-style: normal;
     font-weight: "normal";
-    src: url(./Avenir-Roman.ttf) format("truetype");
+    src: url(Avenir-Roman.ttf) format("truetype");
 }
 
 @font-face {
     font-family: "avenir";
     font-style: bold;
     font-weight: "bold";
-    src: url(./Avenir-Black.ttf) format("truetype");
+    src: url(Avenir-Black.ttf) format("truetype");
 }
