@@ -1,0 +1,55 @@
+@font-face {
+    font-family: "arial";
+    font-style: normal;
+    font-weight: "normal";
+    src: url(./Arial.178a7b16.ttf) format("truetype");
+}
+
+@font-face {
+    font-family: "arial";
+    font-style: bold;
+    font-weight: "bold";
+    src: url("./Arial Bold.12d05860.ttf") format("truetype");
+}
+
+@font-face {
+    font-family: "rebrand";
+    font-style: bold;
+    font-weight: "bold";
+    src: url("./Rebrand Dis ExBold.9c5a23ff.ttf") format("truetype");
+}
+
+@font-face {
+    font-family: "niramit";
+    font-style: bold;
+    font-weight: "bold";
+    src: url(./Niramit-SemiBold.297c6f27.ttf) format("truetype");
+}
+
+@font-face {
+    font-family: "niramit";
+    font-style: normal;
+    font-weight: "normal";
+    src: url(./Niramit-Regular.2ffbecf2.ttf) format("truetype");
+}
+
+@font-face {
+    font-family: "myriadpro";
+    font-style: normal;
+    font-weight: "normal";
+    src: url(./MyriadPro-Regular.2b42381d.otf) format("opentype");
+}
+
+@font-face {
+    font-family: "avenir";
+    font-style: normal;
+    font-weight: "normal";
+    src: url(./Avenir-Roman.f9e40479.ttf) format("truetype");
+}
+
+@font-face {
+    font-family: "avenir";
+    font-style: bold;
+    font-weight: "bold";
+    src: url(./Avenir-Black.d02ff1fc.ttf) format("truetype");
+}
