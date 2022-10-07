@@ -11,20 +11,19 @@ namespace PierreGranger;
 
 class ApidaeException extends \Exception
 {
-
-    const UNIDENTIFIED_ERROR = 0;
-    const NO_TOKEN = 1;
-    const NO_SCOPE = 2;
-    const NO_ERROR = 3;
-    const NO_JSON = 4;
-    const NO_RESPONSE = 5;
-    const NO_BODY = 6;
-    const NOT_CONNECTED = 7;
-    const NO_PROD = 8;
-    const MISSING_PARAMETER = 9;
-    const INVALID_PARAMETER = 10;
-    const INVALID_HTTPCODE = 11;
-    const INVALID_TOKEN = 12;
+    public const UNIDENTIFIED_ERROR = 0;
+    public const NO_TOKEN = 1;
+    public const NO_SCOPE = 2;
+    public const NO_ERROR = 3;
+    public const NO_JSON = 4;
+    public const NO_RESPONSE = 5;
+    public const NO_BODY = 6;
+    public const NOT_CONNECTED = 7;
+    public const NO_PROD = 8;
+    public const MISSING_PARAMETER = 9;
+    public const INVALID_PARAMETER = 10;
+    public const INVALID_HTTPCODE = 11;
+    public const INVALID_TOKEN = 12;
 
     /**
      * @param   string  $message    Message public affiché en cas d'erreur
@@ -41,15 +40,17 @@ class ApidaeException extends \Exception
     {
         if (preg_match_all('#<p><b>(.+)</b>(.+)</p>#Ui', $body, $match)) {
             $ret = [];
-            foreach ($match[1] as $k => $v)
+            foreach ($match[1] as $k => $v) {
                 $ret[$v] = strip_tags($match[2][$k]);
+            }
             $ret['body'] = htmlentities($body);
             return $ret;
         } else {
             $tmp = json_decode($body);
             if (json_last_error() === JSON_ERROR_NONE) {
-                foreach ($tmp as $k => $v)
+                foreach ($tmp as $k => $v) {
                     $ret[$k] = $v;
+                }
             }
             return $ret;
         }
@@ -78,23 +79,20 @@ class ApidaeException extends \Exception
 
     public static function showException($e, $show = true)
     {
-
         if (get_class($e) == __CLASS__) {
             $fooClass = new \ReflectionClass(__CLASS__);
             $constants = $fooClass->getConstants();
-            if (($tmp = array_search($e->code, $constants)) !== false)
+            if (($tmp = array_search($e->code, $constants)) !== false) {
                 $const = $tmp;
+            }
         }
 
         $code = isset($const) ? $const : '#' . $e->code;
 
-        $ret = '<div style="background:#fcf8e3;padding:10px;">';
-        $ret .= '<h2>Une erreur est survenue</h2>';
-        $ret .= '<strong>ApidaeException ' . $code . ' : ' . $e->message . "\n";
+        $ret = 'ApidaeException ' . $code . ' : ' . $e->message . PHP_EOL ;
         if (isset($e->details) && is_array($e->details)) {
             if (
                 isset($e->details['response'])
-                //&& preg_match('#^GuzzleHttp\\.*\\Response$#ui',get_class($e->details['response']))
             ) {
                 $e->details['statusCode'] = $e->details['response']->getStatusCode();
                 $e->details['reasonPhrase'] = $e->details['response']->getReasonPhrase();
@@ -102,14 +100,19 @@ class ApidaeException extends \Exception
                 unset($e->details['response']);
             }
 
-            if (isset($details['body'])) $details['body'] = self::extractBody($details['body']);
-            elseif (isset($details['return']['body'])) $details['return']['body'] = self::extractBody($details['return']['body']);
+            if (isset($details['body'])) {
+                $details['body'] = self::extractBody($details['body']);
+            } elseif (isset($details['return']['body'])) {
+                $details['return']['body'] = self::extractBody($details['return']['body']);
+            }
 
-            $ret .= '<pre style="background:black;color:white;">' . print_r($e->details, true) . '</pre>';
+            $ret .= json_encode($e->details, JSON_PRETTY_PRINT) . PHP_EOL;
         }
-        $ret .= '</div>';
-        if ($show) echo $ret;
-        else return $ret;
+        if ($show) {
+            echo $ret;
+        } else {
+            return $ret;
+        }
     }
 
     public function __toString()

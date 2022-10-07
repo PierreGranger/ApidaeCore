@@ -471,6 +471,10 @@ class ApidaeCore
     {
         return $this->lastPostfields;
     }
+    public function lastRequest()
+    {
+        return $this->lastPostfields();
+    }
 
     public function getEnv()
     {
