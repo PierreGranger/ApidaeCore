@@ -14,12 +14,14 @@ use PierreGranger\ApidaeException;
 class ApidaeCore
 {
     private static $url_api = [
+        'local' => 'http://localhost:8080/',
         'prod' => 'https://api.apidae-tourisme.com/',
         'dev' => 'https://api.apidae-tourisme.dev/',
         'cooking' => 'https://api.apidae-tourisme.cooking/'
     ];
 
     private static $url_base = [
+        'local' => 'http://localhost:8080/',
         'prod' => 'https://base.apidae-tourisme.com/',
         'dev' => 'https://base.apidae-tourisme.dev/',
         'cooking' => 'https://base.apidae-tourisme.cooking/'
@@ -27,7 +29,7 @@ class ApidaeCore
 
     /**
      *
-     * @var string prod|dev|cooking
+     * @var string local|prod|dev|cooking
      */
     private $env = 'prod';
 
@@ -84,8 +86,6 @@ class ApidaeCore
         if ($this->timer) {
             $this->timer = new ApidaeTimer(true);
         }
-
-        $this->token_store = [];
     }
 
     public function url_base()
@@ -106,7 +106,7 @@ class ApidaeCore
 
     public function setTimeout(int $timeout)
     {
-        if ((int)$timeout > 5 && (int)$timeout < 300) {
+        if ((int)$timeout > 5 && (int)$timeout < 600) {
             $this->timeout = (int)$timeout;
         }
     }
@@ -396,6 +396,8 @@ class ApidaeCore
         $curl_opts[CURLOPT_TIMEOUT] = $this->timeout;
 
         curl_setopt_array($ch, $curl_opts);
+
+        print_r($curl_opts) ;
 
         $response = curl_exec($ch);
 

@@ -25,6 +25,8 @@ class ApidaeException extends \Exception
     public const INVALID_HTTPCODE = 11;
     public const INVALID_TOKEN = 12;
 
+    private $details ;
+
     /**
      * @param   string  $message    Message public affiché en cas d'erreur
      * @param   int     $code       Code erreur si possible parmi la liste de CONST ci-dessous
