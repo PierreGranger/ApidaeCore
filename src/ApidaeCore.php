@@ -396,9 +396,7 @@ class ApidaeCore
         $curl_opts[CURLOPT_TIMEOUT] = $this->timeout;
 
         curl_setopt_array($ch, $curl_opts);
-
-        print_r($curl_opts) ;
-
+        
         $response = curl_exec($ch);
 
         if ($response === false) {
