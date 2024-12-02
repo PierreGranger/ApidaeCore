@@ -412,6 +412,8 @@ class ApidaeCore
         $return = [
             'code' => curl_getinfo($ch, CURLINFO_HTTP_CODE),
             'header' => substr($response, 0, $header_size),
+            'request_size' => curl_getinfo($ch, CURLINFO_REQUEST_SIZE),
+            'size_download' => curl_getinfo($ch, CURLINFO_SIZE_DOWNLOAD),
             'body' => substr($response, $header_size)
         ];
 
