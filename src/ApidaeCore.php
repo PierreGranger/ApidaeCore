@@ -50,7 +50,10 @@ class ApidaeCore
     protected $custom_url_api = null;
     protected $custom_url_base = null;
 
-    public function __construct(array $params = null)
+    public string $projet_ecriture_clientId;
+    protected string $projet_ecriture_secret;
+
+    public function __construct(?array $params = null)
     {
         if (isset($params['debug'])) {
             $this->debug = $params['debug'] ? true : false;
@@ -111,12 +114,12 @@ class ApidaeCore
         }
     }
 
-    public function gimme_token($clientId = null, $secret = null, $debugToken = false)
+    public function gimme_token($clientId = null, $secret = null)
     {
         $this->start(__METHOD__);
-
-        $clientId = ($clientId != null) ? $clientId : (isset($this->projet_ecriture_clientId) ? $this->projet_ecriture_clientId : null);
-        $secret = ($secret != null) ? $secret : (isset($this->projet_ecriture_secret) ? $this->projet_ecriture_secret : null);
+        
+        $clientId = $clientId ?? $this->projet_ecriture_clientId ;
+        $secret = $secret ?? $this->projet_ecriture_secret ;
 
         if ($clientId == null || $secret == null) {
             $this->stop(__METHOD__);

@@ -32,7 +32,7 @@ class ApidaeException extends \Exception
      * @param   int     $code       Code erreur si possible parmi la liste de CONST ci-dessous
      * @param   array|null   $details   Détails sous forme de tableau, pour permettre un debuguage plus facile
      */
-    public function __construct($message, $code = 0, $details = null, \Exception $previous = null)
+    public function __construct(string $message, int $code = 0, ?array $details = null, ?\Exception $previous = null)
     {
         parent::__construct($message, $code, $previous);
         $this->details = $details;
