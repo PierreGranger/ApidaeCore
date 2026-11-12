@@ -399,15 +399,15 @@ class ApidaeCore
      * un retour 404 sur un objet est acceptable, mais il ne l'est pas sur un "getUserProfile" par exemple (qui suppose que l'utilisateur soit identifié, et donc qu'il existe)
      *
      * @param	string	$path	chemin relatif vers l'API (/api/v002/...)
-     * @param	array|null	$params	paramètres
-     * @param	string	$params['format']	Si json : déclenchera une exception en cas de retour non json
-     * @param	string	$params['POST']
-     * @param	string	$params['CUSTOMREQUEST']	PUT
-     * @param	string	$params['POSTFIELDS']
-     * @param	string	$params['USERPWD']	couple clientId:secret
-     * @param	array	$params['header']
-     * @param	string	$params['token']	token, récupéré le plus souvent avec gimme_token
-     * @param	string	$params['url_type']	api|base (default : api)
+     * @param	array<string, mixed>|null	$params	paramètres :
+     *   - format (string) : si json, déclenchera une exception en cas de retour non json
+     *   - POST (bool)
+     *   - CUSTOMREQUEST (string) : PUT, DELETE…
+     *   - POSTFIELDS (string|array)
+     *   - USERPWD (string) : couple clientId:secret
+     *   - header (array)
+     *   - token (string) : token, récupéré le plus souvent avec gimme_token
+     *   - url_type (string) : api|base (default : api)
      * @see		ApidaeSso::getSsoToken
      * @see		ApidaeSso::refreshSsoToken
      * @see		ApidaeSso::getUserProfile
