@@ -42,7 +42,21 @@ class ApidaeCore
 
     protected $_config;
 
-    private $token_cache;
+    /**
+     * Tokens OAuth par clientId : ['token' => string, 'expires_at' => ?int]
+     * @var array<string, array{token: string, expires_at: ?int}>
+     */
+    private array $token_cache = [];
+
+    /**
+     * Marge (secondes) avant l'expiration annoncée par l'API à partir de laquelle on redemande un token.
+     */
+    protected const TOKEN_EXPIRY_MARGIN = 60;
+
+    /**
+     * Clés de POSTFIELDS dont la valeur ne doit jamais apparaître dans les détails d'une exception ou d'un log.
+     */
+    protected const SENSITIVE_KEYS = ['tokenSSO', 'token', 'access_token', 'refresh_token', 'secret', 'client_secret', 'password', 'code'];
 
     protected $lastPostfields;
     protected $lastResult;
@@ -127,8 +141,12 @@ class ApidaeCore
         }
 
         if (isset($this->token_cache[$clientId])) {
-            $this->stop(__METHOD__, 'token on token_cache');
-            return $this->token_cache[$clientId];
+            $cached = $this->token_cache[$clientId];
+            if ($cached['expires_at'] === null || $cached['expires_at'] > time()) {
+                $this->stop(__METHOD__, 'token on token_cache');
+                return $cached['token'];
+            }
+            unset($this->token_cache[$clientId]);
         }
 
         $result = $this->request('/oauth/token', [
@@ -146,8 +164,77 @@ class ApidaeCore
         }
 
         $this->stop(__METHOD__);
-        $this->token_cache[$clientId] = $result['access_token'];
+        $expiresAt = null;
+        if (isset($result['expires_in']) && is_numeric($result['expires_in'])) {
+            $expiresAt = time() + max(0, (int) $result['expires_in'] - static::TOKEN_EXPIRY_MARGIN);
+        }
+        $this->token_cache[$clientId] = [
+            'token' => $result['access_token'],
+            'expires_at' => $expiresAt,
+        ];
         return $result['access_token'];
+    }
+
+    /**
+     * Oublie le token en cache (tous les clientId si null), par exemple après une réponse 401.
+     */
+    public function forgetToken(?string $clientId = null): void
+    {
+        if ($clientId === null) {
+            $this->token_cache = [];
+            return;
+        }
+        unset($this->token_cache[$clientId]);
+    }
+
+    /**
+     * Retire les secrets (identifiants, tokens) d'un tableau d'options curl avant de le placer dans une exception.
+     *
+     * @param array<int, mixed> $curl_opts
+     * @return array<int|string, mixed>
+     */
+    public static function sanitizeCurlOpts(array $curl_opts): array
+    {
+        if (isset($curl_opts[CURLOPT_USERPWD])) {
+            $curl_opts[CURLOPT_USERPWD] = '***';
+        }
+        if (isset($curl_opts[CURLOPT_HTTPHEADER]) && is_array($curl_opts[CURLOPT_HTTPHEADER])) {
+            $curl_opts[CURLOPT_HTTPHEADER] = array_map(
+                static fn ($h) => is_string($h) && preg_match('#^\s*(authorization|cookie)\s*:#i', $h)
+                    ? preg_replace('#:.*$#s', ': ***', $h)
+                    : $h,
+                $curl_opts[CURLOPT_HTTPHEADER]
+            );
+        }
+        if (isset($curl_opts[CURLOPT_POSTFIELDS])) {
+            $curl_opts[CURLOPT_POSTFIELDS] = self::sanitizePostfields($curl_opts[CURLOPT_POSTFIELDS]);
+        }
+        return $curl_opts;
+    }
+
+    /**
+     * @param mixed $postfields tableau ou query string
+     * @return mixed
+     */
+    public static function sanitizePostfields(mixed $postfields): mixed
+    {
+        if (is_array($postfields)) {
+            foreach ($postfields as $k => $v) {
+                if (is_string($k) && in_array(strtolower($k), array_map('strtolower', static::SENSITIVE_KEYS), true)) {
+                    $postfields[$k] = '***';
+                } elseif ($v instanceof \CURLFile) {
+                    $postfields[$k] = 'CURLFile(' . $v->getPostFilename() . ')';
+                }
+            }
+            return $postfields;
+        }
+        if (is_string($postfields) && str_contains($postfields, '=') && !str_starts_with(ltrim($postfields), '{')) {
+            parse_str($postfields, $parsed);
+            if (is_array($parsed) && count($parsed) > 0) {
+                return http_build_query(self::sanitizePostfields($parsed));
+            }
+        }
+        return $postfields;
     }
 
     public function debug($var, $titre = null)
@@ -156,14 +243,14 @@ class ApidaeCore
             return;
         }
         if (php_sapi_name() !== 'cli') {
-            echo '<p style="font-size:16px;font-weight:bold ;">[debug] ' . (($titre !== null) ? $titre : '') . ' / ' . gettype($var) . '</p>' . PHP_EOL;
+            echo '<p style="font-size:16px;font-weight:bold ;">[debug] ' . htmlspecialchars((string) ($titre ?? ''), ENT_QUOTES) . ' / ' . gettype($var) . '</p>' . PHP_EOL;
             echo '<pre style="color:white;background:black;font-family:monospace;font-size:8px;width:100%;max-height:500px;overflow:auto;">' . PHP_EOL;
             if (is_object($var) || gettype($var) == 'boolean') {
-                print_r($var);
+                echo htmlspecialchars(print_r($var, true), ENT_QUOTES);
             } elseif (is_array($var) || $this->isJson($var)) {
-                echo json_encode($var, JSON_PRETTY_PRINT);
+                echo htmlspecialchars((string) json_encode($var, JSON_PRETTY_PRINT), ENT_QUOTES);
             } else {
-                echo $var;
+                echo htmlspecialchars((string) $var, ENT_QUOTES);
             }
             echo PHP_EOL . '</pre>' . PHP_EOL;
         } else {
@@ -240,12 +327,12 @@ class ApidaeCore
             $tble = '<table style="clear:both; background:#FFF ; font-size:11px ; margin-bottom:20px ;" border="1" cellspacing="0" cellpadding="6">';
             foreach ($msg as $key => $value) {
                 $tble .= '<tr>';
-                $tble .= '<th><strong>' . ucfirst($key) . '</strong></th>';
+                $tble .= '<th><strong>' . htmlspecialchars(ucfirst((string) $key), ENT_QUOTES) . '</strong></th>';
                 $tble .= '<td>';
                 if (!is_array($value)) {
-                    $tble .= stripslashes(nl2br($value));
+                    $tble .= nl2br(htmlspecialchars(stripslashes((string) $value), ENT_QUOTES));
                 } else {
-                    $tble .= '<pre>' . json_encode($value, JSON_PRETTY_PRINT) . '</pre>';
+                    $tble .= '<pre>' . htmlspecialchars((string) json_encode($value, JSON_PRETTY_PRINT), ENT_QUOTES) . '</pre>';
                 }
                 $tble .= '</td>';
                 $tble .= '</tr>';
@@ -387,7 +474,12 @@ class ApidaeCore
         }
 
         $curl_opts[CURLOPT_HEADER] = true;
-        $curl_opts[CURLOPT_SSL_VERIFYPEER] = false;
+        // Vérification TLS obligatoire : le secret du projet et les tokens transitent sur cette connexion.
+        $curl_opts[CURLOPT_SSL_VERIFYPEER] = true;
+        $curl_opts[CURLOPT_SSL_VERIFYHOST] = 2;
+        if (defined('CURLOPT_PROTOCOLS_STR')) { // libcurl >= 7.85
+            $curl_opts[CURLOPT_PROTOCOLS_STR] = 'http,https';
+        }
 
         /** Le verbose affiche surtout des infos d'identification, en général peu utiles */
         //$curl_opts[CURLOPT_VERBOSE] = $this->debug;
@@ -395,6 +487,11 @@ class ApidaeCore
         $curl_opts[CURLOPT_ENCODING] = 'UTF-8';
         $curl_opts[CURLOPT_RETURNTRANSFER] = true;
         $curl_opts[CURLOPT_FOLLOWLOCATION] = true;
+        $curl_opts[CURLOPT_MAXREDIRS] = 5;
+        // Jamais de redirection vers du http en clair (sauf environnement local)
+        if (defined('CURLOPT_REDIR_PROTOCOLS_STR')) { // libcurl >= 7.85
+            $curl_opts[CURLOPT_REDIR_PROTOCOLS_STR] = $this->env === 'local' ? 'http,https' : 'https';
+        }
         $curl_opts[CURLOPT_CONNECTTIMEOUT] = $this->timeout;
         $curl_opts[CURLOPT_TIMEOUT] = $this->timeout;
 
@@ -405,7 +502,7 @@ class ApidaeCore
         if ($response === false) {
             $details = [
                 'curl_error' => curl_error($ch),
-                'curl_opts' => $curl_opts
+                'curl_opts' => self::sanitizeCurlOpts($curl_opts)
             ];
             throw new ApidaeException('curl_response false', ApidaeException::NO_RESPONSE, $details);
         }
@@ -429,8 +526,8 @@ class ApidaeCore
         } elseif (isset($params['format']) && $params['format'] == 'json') {
             $details = [
                 'debug' => $this->debug,
-                'curl_opts' => $curl_opts,
-                'return' => @$return
+                'curl_opts' => self::sanitizeCurlOpts($curl_opts),
+                'return' => $return
             ];
             throw new ApidaeException('response body is not json', ApidaeException::NO_JSON, $details);
         }
